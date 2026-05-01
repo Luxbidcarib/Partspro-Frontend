@@ -1,9 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { jobs, parts as partsApi, sourcing, calls as callsApi, quotes as quotesApi } from '@/lib/api';
-import { ArrowLeft, Upload, Zap, Search, Phone, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Zap, Search, Phone, FileText, CheckCircle } from 'lucide-react';
 import VehicleForm from '@/components/VehicleForm';
 import MediaUpload from '@/components/MediaUpload';
 import DamageTags from '@/components/DamageTags';
@@ -13,12 +13,12 @@ import CallQueue from '@/components/CallQueue';
 import QuotePanel from '@/components/QuotePanel';
 
 const STEPS = [
-  { key: 'vehicle', label: 'Vehicle', icon: <Upload size={13} /> },
-  { key: 'damage', label: 'Damage', icon: <Zap size={13} /> },
-  { key: 'parts', label: 'Parts', icon: <FileText size={13} /> },
-  { key: 'sourcing', label: 'Sourcing', icon: <Search size={13} /> },
-  { key: 'calls', label: 'Calls', icon: <Phone size={13} /> },
-  { key: 'quote', label: 'Quote', icon: <CheckCircle size={13} /> },
+  { key: 'vehicle', label: 'Vehicle', icon: '🚗' },
+  { key: 'damage', label: 'Damage', icon: '⚡' },
+  { key: 'parts', label: 'Parts', icon: '📋' },
+  { key: 'sourcing', label: 'Sourcing', icon: '🔍' },
+  { key: 'calls', label: 'Calls', icon: '📞' },
+  { key: 'quote', label: 'Quote', icon: '✅' },
 ];
 
 export default function JobPage() {
@@ -29,6 +29,7 @@ export default function JobPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const jobRef = useRef<any>(null);
 
   useEffect(() => {
     loadJob();
@@ -39,9 +40,10 @@ export default function JobPage() {
     try {
       const { data } = await jobs.get(id);
       setJob(data.job);
-      // Auto-advance to appropriate step
+      jobRef.current = data.job;
       const s = data.job.status;
-      if (s === 'parts_review' || s === 'sourcing') setActiveStep('parts');
+      if (s === 'parts_review') setActiveStep('parts');
+      else if (s === 'sourcing') setActiveStep('sourcing');
       else if (s === 'calling') setActiveStep('calls');
       else if (s === 'quoted' || s === 'quoting') setActiveStep('quote');
     } catch (e) {
@@ -52,11 +54,21 @@ export default function JobPage() {
     }
   }
 
+  // Silent refresh - updates job data without remounting components
+  async function silentRefresh() {
+    try {
+      const { data } = await jobs.get(id);
+      setJob(prev => ({ ...prev, ...data.job }));
+      jobRef.current = data.job;
+    } catch (e) {}
+  }
+
   async function saveJob(updates: any) {
     setSaving(true);
     try {
       const { data } = await jobs.update(id, updates);
       setJob((prev: any) => ({ ...prev, ...data.job }));
+      jobRef.current = { ...jobRef.current, ...data.job };
     } catch (e) {
       toast.error('Could not save');
     } finally {
@@ -70,7 +82,7 @@ export default function JobPage() {
       const { data } = await jobs.detectParts(id);
       toast.success(`${data.count} parts detected`);
       setActiveStep('parts');
-      loadJob();
+      silentRefresh();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Detection failed');
     } finally {
@@ -81,9 +93,9 @@ export default function JobPage() {
   async function startSourcing() {
     try {
       await sourcing.start(id);
-      toast.success('Sourcing started — searching all suppliers');
+      toast.success('Sourcing started');
       setActiveStep('sourcing');
-      loadJob();
+      silentRefresh();
     } catch (e) {
       toast.error('Could not start sourcing');
     }
@@ -113,23 +125,25 @@ export default function JobPage() {
       </div>
 
       {/* Step indicator */}
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '12px 24px' }}>
-        <div className="step-indicator">
+      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '12px 24px', overflowX: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 'max-content' }}>
           {STEPS.map((step, i) => {
             const stepOrder = STEPS.findIndex(s => s.key === activeStep);
             const isDone = i < stepOrder;
             const isActive = step.key === activeStep;
             return (
               <div key={step.key} style={{ display: 'flex', alignItems: 'center' }}>
-                <button
-                  onClick={() => setActiveStep(step.key)}
-                  className={`step-item${isActive ? ' active' : isDone ? ' done' : ''}`}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <div className="step-dot">{isDone ? '✓' : i + 1}</div>
-                  <span style={{ display: 'none', fontSize: 12 }} className="step-label">{step.label}</span>
-                  <span style={{ fontSize: 12 }}>{step.label}</span>
+                <button onClick={() => setActiveStep(step.key)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px', borderRadius: 6,
+                    color: isActive ? 'var(--accent)' : isDone ? 'var(--green)' : 'var(--text3)', fontSize: 12 }}>
+                  <div style={{ width: 20, height: 20, borderRadius: '50%', border: '1.5px solid currentColor', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 600,
+                    background: isActive ? 'var(--accent)' : isDone ? 'var(--green)' : 'transparent',
+                    color: isActive || isDone ? '#0d0f12' : 'currentColor' }}>
+                    {isDone ? '✓' : i + 1}
+                  </div>
+                  {step.label}
                 </button>
-                {i < STEPS.length - 1 && <div className="step-line" style={{ margin: '0 8px' }} />}
+                {i < STEPS.length - 1 && <div style={{ width: 20, height: 1, background: isDone ? 'var(--green)' : 'var(--border2)', margin: '0 2px' }} />}
               </div>
             );
           })}
@@ -139,13 +153,12 @@ export default function JobPage() {
       {/* Content */}
       <div style={{ padding: 24, maxWidth: 960, margin: '0 auto' }}>
 
-        {/* STEP: Vehicle */}
         {activeStep === 'vehicle' && (
           <div>
             <VehicleForm job={job} onSave={saveJob} />
-            <MediaUpload jobId={id} type="vehicle_photo" label="Vehicle photos" onUploaded={loadJob} existingMedia={job.job_media || []} />
-            <MediaUpload jobId={id} type="inspection_pdf" label="Inspection report PDF" accept=".pdf" onUploaded={loadJob} existingMedia={job.job_media || []} />
-            <MediaUpload jobId={id} type="estimate_pdf" label="Estimate PDF (optional)" accept=".pdf" onUploaded={loadJob} existingMedia={job.job_media || []} />
+            <MediaUpload jobId={id} type="vehicle_photo" label="Vehicle photos" existingMedia={job.job_media || []} onUploaded={silentRefresh} />
+            <MediaUpload jobId={id} type="inspection_pdf" label="Inspection report PDF" accept=".pdf" existingMedia={job.job_media || []} onUploaded={silentRefresh} />
+            <MediaUpload jobId={id} type="estimate_pdf" label="Estimate PDF (optional)" accept=".pdf" existingMedia={job.job_media || []} onUploaded={silentRefresh} />
             <button onClick={() => setActiveStep('damage')}
               style={{ width: '100%', padding: 11, fontSize: 14, fontWeight: 600, background: 'var(--accent)', color: '#0d0f12', border: 'none', borderRadius: 8, cursor: 'pointer', marginTop: 8 }}>
               Next: Select damage →
@@ -153,66 +166,45 @@ export default function JobPage() {
           </div>
         )}
 
-        {/* STEP: Damage */}
         {activeStep === 'damage' && (
           <div>
-            <MediaUpload jobId={id} type="damage_photo" label="Damage photos" multiple onUploaded={loadJob} existingMedia={job.job_media || []} />
+            <MediaUpload jobId={id} type="damage_photo" label="Damage photos" multiple existingMedia={job.job_media || []} onUploaded={silentRefresh} />
             <DamageTags value={job.damage_tags || []} onChange={tags => saveJob({ damage_tags: tags })} />
             <div className="card">
               <div className="card-title">Additional notes for AI</div>
-              <textarea
-                placeholder="Describe the damage in detail... e.g. 'Front right corner hit, bumper cracked, hood has crease, headlight intact'"
+              <textarea placeholder="Describe the damage... e.g. 'Front right corner hit, bumper cracked, hood crease, headlight intact'"
                 value={job.damage_description || ''}
                 onChange={e => saveJob({ damage_description: e.target.value })}
-                rows={3}
-              />
+                rows={3} />
             </div>
-            <button
-              onClick={detectParts}
-              disabled={detecting}
-              style={{ width: '100%', padding: 11, fontSize: 14, fontWeight: 600, background: detecting ? 'var(--surface2)' : 'var(--accent)', color: detecting ? 'var(--text3)' : '#0d0f12', border: 'none', borderRadius: 8, cursor: detecting ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              {detecting ? (
-                <><div className="dot-pulse"><span/><span/><span/></div> AI detecting parts...</>
-              ) : (
-                <><Zap size={16} /> Auto-detect parts from damage + inspection</>
-              )}
+            <button onClick={detectParts} disabled={detecting}
+              style={{ width: '100%', padding: 11, fontSize: 14, fontWeight: 600,
+                background: detecting ? 'var(--surface2)' : 'var(--accent)',
+                color: detecting ? 'var(--text3)' : '#0d0f12',
+                border: 'none', borderRadius: 8, cursor: detecting ? 'wait' : 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              {detecting
+                ? <><span style={{ display: 'inline-flex', gap: 3 }}><span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} /><span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} /><span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', display: 'inline-block' }} /></span> AI detecting parts...</>
+                : <><Zap size={16} /> Auto-detect parts from damage + inspection</>
+              }
             </button>
           </div>
         )}
 
-        {/* STEP: Parts review */}
         {activeStep === 'parts' && (
-          <PartsReview
-            job={job}
-            onApprove={() => { startSourcing(); }}
-            onRefresh={loadJob}
-          />
+          <PartsReview job={job} onApprove={startSourcing} onRefresh={silentRefresh} />
         )}
 
-        {/* STEP: Sourcing */}
         {activeStep === 'sourcing' && (
-          <SourcingResults
-            job={job}
-            onProceed={() => setActiveStep('calls')}
-            onRefresh={loadJob}
-          />
+          <SourcingResults job={job} onProceed={() => setActiveStep('calls')} onRefresh={silentRefresh} />
         )}
 
-        {/* STEP: Calls */}
         {activeStep === 'calls' && (
-          <CallQueue
-            job={job}
-            onProceed={() => { setActiveStep('quote'); loadJob(); }}
-            onRefresh={loadJob}
-          />
+          <CallQueue job={job} onProceed={() => { setActiveStep('quote'); silentRefresh(); }} onRefresh={silentRefresh} />
         )}
 
-        {/* STEP: Quote */}
         {activeStep === 'quote' && (
-          <QuotePanel
-            job={job}
-            onRefresh={loadJob}
-          />
+          <QuotePanel job={job} onRefresh={silentRefresh} />
         )}
       </div>
     </div>
