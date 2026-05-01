@@ -143,9 +143,9 @@ export default function JobPage() {
         {activeStep === 'vehicle' && (
           <div>
             <VehicleForm job={job} onSave={saveJob} />
-            <MediaUpload jobId={id} type="vehicle_photo" label="Vehicle photos" onUploaded={loadJob} />
-            <MediaUpload jobId={id} type="inspection_pdf" label="Inspection report PDF" accept=".pdf" onUploaded={loadJob} />
-            <MediaUpload jobId={id} type="estimate_pdf" label="Estimate PDF (optional)" accept=".pdf" onUploaded={loadJob} />
+            <MediaUpload jobId={id} type="vehicle_photo" label="Vehicle photos" onUploaded={loadJob} existingMedia={job.job_media || []} />
+            <MediaUpload jobId={id} type="inspection_pdf" label="Inspection report PDF" accept=".pdf" onUploaded={loadJob} existingMedia={job.job_media || []} />
+            <MediaUpload jobId={id} type="estimate_pdf" label="Estimate PDF (optional)" accept=".pdf" onUploaded={loadJob} existingMedia={job.job_media || []} />
             <button onClick={() => setActiveStep('damage')}
               style={{ width: '100%', padding: 11, fontSize: 14, fontWeight: 600, background: 'var(--accent)', color: '#0d0f12', border: 'none', borderRadius: 8, cursor: 'pointer', marginTop: 8 }}>
               Next: Select damage →
@@ -156,7 +156,7 @@ export default function JobPage() {
         {/* STEP: Damage */}
         {activeStep === 'damage' && (
           <div>
-            <MediaUpload jobId={id} type="damage_photo" label="Damage photos" multiple onUploaded={loadJob} />
+            <MediaUpload jobId={id} type="damage_photo" label="Damage photos" multiple onUploaded={loadJob} existingMedia={job.job_media || []} />
             <DamageTags value={job.damage_tags || []} onChange={tags => saveJob({ damage_tags: tags })} />
             <div className="card">
               <div className="card-title">Additional notes for AI</div>
