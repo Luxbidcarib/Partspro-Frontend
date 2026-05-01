@@ -15,7 +15,7 @@ export default function SourcingResults({ job, onProceed, onRefresh }: Props) {
   const [status, setStatus] = useState<any>({ pct: 0, complete: false });
   const [loading, setLoading] = useState(true);
   const [expandedPart, setExpandedPart] = useState<string | null>(null);
-  const [queuedIds, setQueuedIds] = useState<Set<string>>(new Set());
+  useState<string[]>([]);
 
   useEffect(() => {
     loadResults();
