@@ -292,7 +292,6 @@ function AddSupplierModal({ onAdd }: { onAdd: () => void }) {
     if (!form.name || !form.url) { toast.error('Name and URL required'); return; }
     setSaving(true);
     try {
-      const { suppliersApi: api } = await import('@/lib/api');
       await suppliersApi.create(form);
       toast.success('Connector added — testing connection...');
       setOpen(false);
