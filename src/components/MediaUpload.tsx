@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { jobs } from '@/lib/api';
@@ -15,39 +15,29 @@ interface Props {
   existingMedia?: any[];
 }
 
-export default function MediaUpload({ jobId, type, label, accept, multiple = true, onUploaded, existingMedia = [] }: Props) {
+export default function MediaUpload({ jobId, type, label, accept, multiple = true, onUploaded }: Props) {
   const [uploading, setUploading] = useState(false);
-  const [uploaded, setUploaded] = useState<any[]>([]);
-
-  // Load existing media on mount and when existingMedia changes
-  useEffect(() => {
-    if (existingMedia && existingMedia.length > 0) {
-      const filtered = existingMedia.filter(m => m.type === type);
-      if (filtered.length > 0) setUploaded(filtered);
-    }
-  }, [existingMedia, type]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 
   const onDrop = useCallback(async (files: File[]) => {
     if (!files.length) return;
-    setUploading(true);
 
-    // Show local previews immediately
-    const previews = files.map(f => ({ url: URL.createObjectURL(f), filename: f.name, local: true }));
-    setUploaded(prev => [...prev, ...previews]);
+    // Show local previews immediately — these never disappear
+    const localUrls = files.map(f => URL.createObjectURL(f));
+    setPreviews(prev => [...prev, ...localUrls]);
+    setUploading(true);
 
     try {
       const { data } = await jobs.uploadMedia(jobId, files, type);
-      // Replace local previews with real URLs
-      setUploaded(prev => {
-        const nonLocal = prev.filter(m => !m.local);
-        return [...nonLocal, ...data.media];
-      });
+      setUploadedFiles(prev => [...prev, ...data.media]);
       toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`);
-      onUploaded?.();
+      // Only call onUploaded for PDFs to trigger AI analysis
+      if (type.includes('pdf')) onUploaded?.();
     } catch (e) {
-      // Remove failed previews
-      setUploaded(prev => prev.filter(m => !m.local));
       toast.error('Upload failed');
+      // Remove the failed previews
+      setPreviews(prev => prev.slice(0, prev.length - files.length));
     } finally {
       setUploading(false);
     }
@@ -76,7 +66,7 @@ export default function MediaUpload({ jobId, type, label, accept, multiple = tru
           cursor: 'pointer',
           background: isDragActive ? 'rgba(45,212,191,0.05)' : 'transparent',
           transition: 'all .15s',
-          marginBottom: uploaded.length > 0 ? 12 : 0
+          marginBottom: previews.length > 0 ? 12 : 0
         }}
       >
         <input {...getInputProps()} />
@@ -90,30 +80,21 @@ export default function MediaUpload({ jobId, type, label, accept, multiple = tru
         </div>
       </div>
 
-      {/* Image preview grid */}
-      {!isPDF && uploaded.length > 0 && (
+      {/* Image previews — shown immediately, never disappear */}
+      {!isPDF && previews.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
-          {uploaded.map((m, i) => (
+          {previews.map((url, i) => (
             <div key={i} style={{ position: 'relative' }}>
-              <img
-                src={m.url}
-                alt=""
-                style={{ width: '100%', height: 72, objectFit: 'cover', borderRadius: 6, display: 'block', opacity: m.local ? 0.6 : 1 }}
-              />
-              {m.local && (
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', background: 'rgba(0,0,0,0.3)', borderRadius: 6 }}>
-                  Uploading...
-                </div>
-              )}
+              <img src={url} alt="" style={{ width: '100%', height: 72, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
             </div>
           ))}
         </div>
       )}
 
       {/* PDF list */}
-      {isPDF && uploaded.length > 0 && (
+      {isPDF && uploadedFiles.length > 0 && (
         <div>
-          {uploaded.map((m, i) => (
+          {uploadedFiles.map((m, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0', borderTop: '1px solid var(--border)', fontSize: 12 }}>
               <FileText size={14} style={{ color: 'var(--purple)' }} />
               <span style={{ color: 'var(--text2)' }}>{m.filename}</span>
