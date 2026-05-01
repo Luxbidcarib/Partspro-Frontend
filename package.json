@@ -1,0 +1,30 @@
+{
+  "name": "partspro-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "14.2.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "@supabase/supabase-js": "^2.45.0",
+    "axios": "^1.7.0",
+    "lucide-react": "^0.383.0",
+    "react-dropzone": "^14.2.3",
+    "react-hot-toast": "^2.4.1",
+    "swr": "^2.2.5",
+    "clsx": "^2.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/react": "^18.3.0",
+    "autoprefixer": "^10.4.0",
+    "postcss": "^8.4.0",
+    "tailwindcss": "^3.4.0",
+    "typescript": "^5.5.0"
+  }
+}
