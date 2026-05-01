@@ -1,9 +1,9 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { jobs } from '@/lib/api';
-import { Upload, X, FileText, Image } from 'lucide-react';
+import { FileText } from 'lucide-react';
 
 interface Props {
   jobId: string;
@@ -12,21 +12,41 @@ interface Props {
   accept?: string;
   multiple?: boolean;
   onUploaded?: () => void;
+  existingMedia?: any[];
 }
 
-export default function MediaUpload({ jobId, type, label, accept, multiple = true, onUploaded }: Props) {
+export default function MediaUpload({ jobId, type, label, accept, multiple = true, onUploaded, existingMedia = [] }: Props) {
   const [uploading, setUploading] = useState(false);
   const [uploaded, setUploaded] = useState<any[]>([]);
+
+  // Load existing media on mount and when existingMedia changes
+  useEffect(() => {
+    if (existingMedia && existingMedia.length > 0) {
+      const filtered = existingMedia.filter(m => m.type === type);
+      if (filtered.length > 0) setUploaded(filtered);
+    }
+  }, [existingMedia, type]);
 
   const onDrop = useCallback(async (files: File[]) => {
     if (!files.length) return;
     setUploading(true);
+
+    // Show local previews immediately
+    const previews = files.map(f => ({ url: URL.createObjectURL(f), filename: f.name, local: true }));
+    setUploaded(prev => [...prev, ...previews]);
+
     try {
       const { data } = await jobs.uploadMedia(jobId, files, type);
-      setUploaded(prev => [...prev, ...data.media]);
+      // Replace local previews with real URLs
+      setUploaded(prev => {
+        const nonLocal = prev.filter(m => !m.local);
+        return [...nonLocal, ...data.media];
+      });
       toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`);
       onUploaded?.();
     } catch (e) {
+      // Remove failed previews
+      setUploaded(prev => prev.filter(m => !m.local));
       toast.error('Upload failed');
     } finally {
       setUploading(false);
@@ -36,7 +56,9 @@ export default function MediaUpload({ jobId, type, label, accept, multiple = tru
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     multiple,
-    accept: accept === '.pdf' ? { 'application/pdf': ['.pdf'] } : { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic'] }
+    accept: accept === '.pdf'
+      ? { 'application/pdf': ['.pdf'] }
+      : { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic'] }
   });
 
   const isPDF = type.includes('pdf');
@@ -58,9 +80,7 @@ export default function MediaUpload({ jobId, type, label, accept, multiple = tru
         }}
       >
         <input {...getInputProps()} />
-        <div style={{ color: isPDF ? 'var(--purple)' : 'var(--accent)', marginBottom: 6 }}>
-          {isPDF ? <FileText size={24} /> : <Image size={24} />}
-        </div>
+        <div style={{ fontSize: 28, marginBottom: 6 }}>{isPDF ? '📄' : '📷'}</div>
         <div style={{ fontSize: 13, color: 'var(--text2)' }}>
           {uploading ? 'Uploading...' : isDragActive ? 'Drop files here' : `Tap to upload ${label.toLowerCase()}`}
         </div>
@@ -70,12 +90,21 @@ export default function MediaUpload({ jobId, type, label, accept, multiple = tru
         </div>
       </div>
 
-      {/* Preview grid for images */}
+      {/* Image preview grid */}
       {!isPDF && uploaded.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
           {uploaded.map((m, i) => (
             <div key={i} style={{ position: 'relative' }}>
-              <img src={m.url} alt="" style={{ width: '100%', height: 72, objectFit: 'cover', borderRadius: 6, display: 'block' }} />
+              <img
+                src={m.url}
+                alt=""
+                style={{ width: '100%', height: 72, objectFit: 'cover', borderRadius: 6, display: 'block', opacity: m.local ? 0.6 : 1 }}
+              />
+              {m.local && (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff', background: 'rgba(0,0,0,0.3)', borderRadius: 6 }}>
+                  Uploading...
+                </div>
+              )}
             </div>
           ))}
         </div>
