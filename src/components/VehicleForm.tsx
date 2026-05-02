@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 
 interface Props {
@@ -22,6 +22,23 @@ export default function VehicleForm({ job, onSave }: Props) {
     customer_phone: job.customer_phone || '',
     customer_email: job.customer_email || '',
   });
+
+  // Sync form with job prop when it changes (e.g., navigating back to this step)
+  useEffect(() => {
+    setForm({
+      vin: job.vin || '',
+      year: job.year || '',
+      make: job.make || '',
+      model: job.model || '',
+      trim: job.trim || '',
+      engine: job.engine || '',
+      mileage: job.mileage || '',
+      color: job.color || '',
+      customer_name: job.customer_name || '',
+      customer_phone: job.customer_phone || '',
+      customer_email: job.customer_email || '',
+    });
+  }, [job.id, job.vin, job.year, job.make, job.model, job.trim, job.mileage, job.color, job.customer_name, job.customer_phone, job.customer_email]);
 
   function set(field: string, value: any) {
     setForm(prev => ({ ...prev, [field]: value }));
