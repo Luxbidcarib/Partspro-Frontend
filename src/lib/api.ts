@@ -50,6 +50,7 @@ export const jobs = {
     return api.post(`/api/jobs/${id}/media`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
   detectParts: (id: string) => api.post(`/api/jobs/${id}/detect-parts`),
+  copyMedia: (id: string, from_type: string, to_type: string) => api.post(`/api/jobs/${id}/copy-media`, { from_type, to_type }),
 };
 
 // ── Parts
@@ -60,6 +61,7 @@ export const parts = {
   bulkUpdate: (partIds: string[], updates: any) => api.patch('/api/parts/bulk', { part_ids: partIds, updates }),
   delete: (id: string) => api.delete(`/api/parts/${id}`),
   selectSupplier: (id: string, data: any) => api.post(`/api/parts/${id}/select-supplier`, data),
+  aiLookup: (data: any) => api.post('/api/parts/ai-lookup', data),
 };
 
 // ── Sourcing
