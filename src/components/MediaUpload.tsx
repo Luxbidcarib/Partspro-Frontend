@@ -1,5 +1,5 @@
 'use client';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { jobs } from '@/lib/api';
@@ -15,15 +15,24 @@ interface Props {
   existingMedia?: any[];
 }
 
-export default function MediaUpload({ jobId, type, label, accept, multiple = true, onUploaded }: Props) {
+export default function MediaUpload({ jobId, type, label, accept, multiple = true, onUploaded, existingMedia = [] }: Props) {
   const [uploading, setUploading] = useState(false);
   const [previews, setPreviews] = useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 
+  // Load existing media on mount — this is why photos persist when navigating back
+  useEffect(() => {
+    const matching = existingMedia.filter(m => m.type === type);
+    if (matching.length > 0) {
+      setPreviews(matching.map(m => m.url));
+      setUploadedFiles(matching);
+    }
+  }, [existingMedia, type]);
+
   const onDrop = useCallback(async (files: File[]) => {
     if (!files.length) return;
 
-    // Show local previews immediately — these never disappear
+    // Show local previews immediately
     const localUrls = files.map(f => URL.createObjectURL(f));
     setPreviews(prev => [...prev, ...localUrls]);
     setUploading(true);
@@ -32,11 +41,9 @@ export default function MediaUpload({ jobId, type, label, accept, multiple = tru
       const { data } = await jobs.uploadMedia(jobId, files, type);
       setUploadedFiles(prev => [...prev, ...data.media]);
       toast.success(`${files.length} file${files.length > 1 ? 's' : ''} uploaded`);
-      // Only call onUploaded for PDFs to trigger AI analysis
-      if (type.includes('pdf')) onUploaded?.();
+      onUploaded?.();
     } catch (e) {
       toast.error('Upload failed');
-      // Remove the failed previews
       setPreviews(prev => prev.slice(0, prev.length - files.length));
     } finally {
       setUploading(false);
@@ -80,7 +87,7 @@ export default function MediaUpload({ jobId, type, label, accept, multiple = tru
         </div>
       </div>
 
-      {/* Image previews — shown immediately, never disappear */}
+      {/* Image previews */}
       {!isPDF && previews.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))', gap: 8 }}>
           {previews.map((url, i) => (
