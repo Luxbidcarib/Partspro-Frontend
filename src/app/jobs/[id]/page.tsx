@@ -3,7 +3,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { jobs, parts as partsApi, sourcing, calls as callsApi, quotes as quotesApi } from '@/lib/api';
-import { ArrowLeft, Zap, Search, Phone, FileText, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Zap, Search, Phone, FileText, CheckCircle, ImageIcon } from 'lucide-react';
 import VehicleForm from '@/components/VehicleForm';
 import MediaUpload from '@/components/MediaUpload';
 import DamageTags from '@/components/DamageTags';
@@ -29,6 +29,7 @@ export default function JobPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [detecting, setDetecting] = useState(false);
+  const [copyingPhotos, setCopyingPhotos] = useState(false);
   const jobRef = useRef<any>(null);
 
   useEffect(() => {
@@ -54,7 +55,6 @@ export default function JobPage() {
     }
   }
 
-  // Silent refresh - updates job data without remounting components
   async function silentRefresh() {
     try {
       const { data } = await jobs.get(id);
@@ -90,6 +90,19 @@ export default function JobPage() {
     }
   }
 
+  async function copyVehiclePhotos() {
+    setCopyingPhotos(true);
+    try {
+      await jobs.copyMedia(id, 'vehicle_photo', 'damage_photo');
+      toast.success('Vehicle photos copied to damage');
+      await silentRefresh();
+    } catch (e) {
+      toast.error('Could not copy photos');
+    } finally {
+      setCopyingPhotos(false);
+    }
+  }
+
   async function startSourcing() {
     try {
       await sourcing.start(id);
@@ -109,6 +122,8 @@ export default function JobPage() {
 
   if (!job) return null;
   const vehicle = [job.year, job.make, job.model, job.trim].filter(Boolean).join(' ');
+  const vehiclePhotoCount = (job.job_media || []).filter((m: any) => m.type === 'vehicle_photo').length;
+  const damagePhotoCount = (job.job_media || []).filter((m: any) => m.type === 'damage_photo').length;
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
@@ -168,6 +183,19 @@ export default function JobPage() {
 
         {activeStep === 'damage' && (
           <div>
+            {/* Pull vehicle photos forward */}
+            {vehiclePhotoCount > 0 && (
+              <button onClick={copyVehiclePhotos} disabled={copyingPhotos}
+                style={{
+                  width: '100%', padding: '10px 14px', marginBottom: 12,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                  background: 'var(--surface2)', color: 'var(--text2)',
+                  border: '1px dashed var(--border2)', borderRadius: 8,
+                  cursor: copyingPhotos ? 'wait' : 'pointer', fontSize: 13
+                }}>
+                📷 {copyingPhotos ? 'Copying...' : `Use ${vehiclePhotoCount} vehicle photo${vehiclePhotoCount > 1 ? 's' : ''} as damage photos`}
+              </button>
+            )}
             <MediaUpload jobId={id} type="damage_photo" label="Damage photos" multiple existingMedia={job.job_media || []} onUploaded={silentRefresh} />
             <DamageTags value={job.damage_tags || []} onChange={tags => saveJob({ damage_tags: tags })} />
             <div className="card">
